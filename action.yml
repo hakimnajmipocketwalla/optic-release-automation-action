@@ -135,15 +135,29 @@ runs:
       id: custom-version-bump
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
       run: |
-        # 1. Run your command and capture all its noisy output into a variable
+        echo "Running the version bump command..."
+        # 1. Run your command and capture all its output
         BUMP_OUTPUT=$(${{ inputs.bump-command }} ${{ inputs.semver }})
 
-        # 2. Search through the output to find and extract ONLY the version number.
-        #    This looks for a pattern like "pyspark_common_utilities-0.1.2" in the logs
-        #    and extracts just the "0.1.2" part.
-        VERSION=$(echo "$BUMP_OUTPUT" | grep -oP 'pyspark_common_utilities-\K[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+        # 2. IMPORTANT: Print the full output for debugging purposes.
+        #    This will show us exactly what grep is trying to search.
+        echo "--- Full output from the bump command ---"
+        echo "$BUMP_OUTPUT"
+        echo "--- End of full output ---"
 
-        # 3. Output the clean version string for other steps to use.
+        # 3. Try to extract the version. We add '|| true' to the grep command
+        #    so that if it finds nothing, it won't crash the whole script.
+        VERSION=$(echo "$BUMP_OUTPUT" | grep -oP 'pyspark_common_utilities-\K[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
+
+        # 4. Manually check if the version was found. If not, exit with a clear error.
+        if [ -z "$VERSION" ]; then
+          echo "::error::Could not extract version number from the command output."
+          echo "Please review the full output above to see why the pattern was not found."
+          exit 1
+        fi
+
+        # 5. If we get here, it means we were successful.
+        echo "Successfully extracted version: $VERSION"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       shell: 'bash'
 
