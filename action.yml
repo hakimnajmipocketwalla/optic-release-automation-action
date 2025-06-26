@@ -135,32 +135,10 @@ runs:
       id: custom-version-bump
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
       run: |
-        echo "Running the version bump command and capturing both stdout and stderr..."
-        # 1. Run your command. The '2>&1' redirects the error stream (2)
-        #    to the output stream (1), so we capture EVERYTHING.
-        BUMP_OUTPUT=$(${{ inputs.bump-command }} ${{ inputs.semver }} 2>&1)
-        EXIT_CODE=$? # Also capture the command's exit code
-
-        # 2. Print everything we captured for debugging.
-        echo "--- Full output (stdout + stderr) from the bump command ---"
-        echo "$BUMP_OUTPUT"
-        echo "--- End of full output ---"
-        echo "Command finished with exit code: $EXIT_CODE"
-
-        # 3. Try to extract the version from the combined output.
-        VERSION=$(echo "$BUMP_OUTPUT" | grep -oP 'pyspark_common_utilities-\K[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
-
-        # 4. Manually check if the version was found.
-        if [ -z "$VERSION" ]; then
-          echo "::error::Could not extract version number from the command output."
-          echo "Please review the full output above."
-          exit 1
-        fi
-
-        # 5. Success!
-        echo "Successfully extracted version: $VERSION"
+        ${{ inputs.bump-command }} ${{ inputs.semver }}
+        VERSION=$(bump-my-version show current)
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      shell: 'bash'
+      shell: bash
 
     # - name: Set final version
     #   id: set-final-version
@@ -180,6 +158,20 @@ runs:
         ${{ inputs.build-command }}
       shell: 'bash'
 
+    - name: Commit and open PR
+      uses: actions/github-script@v7
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const { runAction } = require('${{ github.action_path }}/dist/index.js')
+          await runAction({
+            github,
+            context,
+            inputs: ${{ toJSON(inputs) }},
+            packageVersion: '${{ steps.version-bump.outputs.result || steps.custom-version-bump.outputs.version }}'
+          })
+
     # - name: Commit and open PR
     #   uses: actions/github-script@v7
     #   if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -194,19 +186,19 @@ runs:
     #         packageVersion: '${{ steps.set-final-version.outputs.version }}'
     #       })
 
-    - name: Commit and open PR
-      uses: actions/github-script@v7
-      if: ${{ github.event_name == 'workflow_dispatch' }}
-      with:
-        github-token: ${{ inputs.github-token }}
-        script: |
-          const { runAction } = require('${{ github.action_path }}/dist/index.js')
-          await runAction({
-            github,
-            context,
-            inputs: ${{ toJSON(inputs) }},
-            packageVersion: '${{ steps.version-bump.outputs.result }}${{ steps.custom-version-bump.outputs.version }}'
-          })
+    # - name: Commit and open PR
+    #   uses: actions/github-script@v7
+    #   if: ${{ github.event_name == 'workflow_dispatch' }}
+    #   with:
+    #     github-token: ${{ inputs.github-token }}
+    #     script: |
+    #       const { runAction } = require('${{ github.action_path }}/dist/index.js')
+    #       await runAction({
+    #         github,
+    #         context,
+    #         inputs: ${{ toJSON(inputs) }},
+    #         packageVersion: '${{ steps.version-bump.outputs.result }}${{ steps.custom-version-bump.outputs.version }}'
+    #       })
 
     - name: Release the package
       uses: actions/github-script@v7
