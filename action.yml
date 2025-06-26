@@ -136,7 +136,8 @@ runs:
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
       run: |
         ${{ inputs.bump-command }} ${{ inputs.semver }}
-        VERSION=$(bump-my-version show current)
+        VERSION=$(bump-my-version show current_version)
+        echo "$VERSION"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       shell: bash
 
