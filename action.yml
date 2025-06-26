@@ -131,16 +131,6 @@ runs:
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"        
       shell: 'bash'
 
-    - name: Set final version
-      id: set-final-version
-      run: |
-        VERSION="${{ steps.version-bump.outputs.result }}"
-        if [ -z "$VERSION" ]; then
-          VERSION="${{ steps.custom-version-bump.outputs.version }}"
-        fi
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      shell: bash
-
     - name: Build the package
       if: ${{ inputs.build-command }}
       run: |
@@ -160,7 +150,7 @@ runs:
             github,
             context,
             inputs: ${{ toJSON(inputs) }},
-            packageVersion: '${{ steps.set-final-version.outputs.version }}'
+            packageVersion: '${{ steps.version-bump.outputs.result || steps.custom-version-bump.outputs.version }}'
           })
 
     - name: Release the package
