@@ -139,6 +139,7 @@ runs:
           VERSION="${{ steps.custom-version-bump.outputs.version }}"
         fi
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      shell: bash
 
     - name: Build the package
       if: ${{ inputs.build-command }}
