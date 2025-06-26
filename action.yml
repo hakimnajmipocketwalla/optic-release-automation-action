@@ -156,9 +156,11 @@ runs:
         github-token: ${{ inputs.github-token }}
         script: |
           const { runAction } = require('${{ github.action_path }}/dist/index.js')
-          await runAction(
-            { github, context, inputs: ${{ toJSON(inputs) }}, 
-            packageVersion: ${{ steps.set-final-version.outputs.version  }} 
+          await runAction({
+            github,
+            context,
+            inputs: ${{ toJSON(inputs) }},
+            packageVersion: '${{ steps.set-final-version.outputs.version }}' # <-- MODIFIED LINE HERE
           })
 
     - name: Release the package
