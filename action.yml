@@ -123,12 +123,28 @@ runs:
           const { bumpVersion } = require('${{ github.action_path }}/dist/index.js')
           return await bumpVersion({ inputs: ${{ toJSON(inputs) }} })
 
+    # - name: Custom version bump
+    #   id: custom-version-bump
+    #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
+    #   run: |
+    #     VERSION=$(${{ inputs.bump-command }} ${{ inputs.semver }})
+    #     echo "version=$VERSION" >> "$GITHUB_OUTPUT"        
+    #   shell: 'bash'
+
     - name: Custom version bump
       id: custom-version-bump
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
       run: |
-        VERSION=$(${{ inputs.bump-command }} ${{ inputs.semver }})
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"        
+        # 1. Run your command and capture all its noisy output into a variable
+        BUMP_OUTPUT=$(${{ inputs.bump-command }} ${{ inputs.semver }})
+
+        # 2. Search through the output to find and extract ONLY the version number.
+        #    This looks for a pattern like "pyspark_common_utilities-0.1.2" in the logs
+        #    and extracts just the "0.1.2" part.
+        VERSION=$(echo "$BUMP_OUTPUT" | grep -oP 'pyspark_common_utilities-\K[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+
+        # 3. Output the clean version string for other steps to use.
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       shell: 'bash'
 
     # - name: Set final version
