@@ -123,23 +123,37 @@ runs:
           const { bumpVersion } = require('${{ github.action_path }}/dist/index.js')
           return await bumpVersion({ inputs: ${{ toJSON(inputs) }} })
 
+    # - name: Custom version bump
+    #   id: custom-version-bump
+    #   if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
+    #   run: |
+    #     VERSION=$(${{ inputs.bump-command }} ${{ inputs.semver }})
+    #     echo "version=$VERSION" >> "$GITHUB_OUTPUT"        
+    #   shell: 'bash'
+
     - name: Custom version bump
       id: custom-version-bump
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
       run: |
-        VERSION=$(${{ inputs.bump-command }} ${{ inputs.semver }})
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"        
+        # Run your command and capture all its output
+        BUMP_OUTPUT=$(${{ inputs.bump-command }} ${{ inputs.semver }})
+        
+        # Use grep (or another tool) to find and extract ONLY the version number
+        VERSION=$(echo "$BUMP_OUTPUT" | grep -oP 'pyspark_common_utilities-\K[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+        
+        # This now correctly outputs just the version string
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       shell: 'bash'
 
-    - name: Set final version
-      id: set-final-version
-      run: |
-        VERSION="${{ steps.version-bump.outputs.result }}"
-        if [ -z "$VERSION" ]; then
-          VERSION="${{ steps.custom-version-bump.outputs.version }}"
-        fi
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-      shell: bash
+    # - name: Set final version
+    #   id: set-final-version
+    #   run: |
+    #     VERSION="${{ steps.version-bump.outputs.result }}"
+    #     if [ -z "$VERSION" ]; then
+    #       VERSION="${{ steps.custom-version-bump.outputs.version }}"
+    #     fi
+    #     echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+    #   shell: bash
 
     - name: Build the package
       if: ${{ inputs.build-command }}
@@ -148,6 +162,20 @@ runs:
         npm -v
         ${{ inputs.build-command }}
       shell: 'bash'
+
+    # - name: Commit and open PR
+    #   uses: actions/github-script@v7
+    #   if: ${{ github.event_name == 'workflow_dispatch' }}
+    #   with:
+    #     github-token: ${{ inputs.github-token }}
+    #     script: |
+    #       const { runAction } = require('${{ github.action_path }}/dist/index.js')
+    #       await runAction({
+    #         github,
+    #         context,
+    #         inputs: ${{ toJSON(inputs) }},
+    #         packageVersion: '${{ steps.set-final-version.outputs.version }}'
+    #       })
 
     - name: Commit and open PR
       uses: actions/github-script@v7
@@ -160,7 +188,7 @@ runs:
             github,
             context,
             inputs: ${{ toJSON(inputs) }},
-            packageVersion: '${{ steps.set-final-version.outputs.version }}'
+            packageVersion: '${{ steps.version-bump.outputs.result }}${{ steps.custom-version-bump.outputs.version }}'
           })
 
     - name: Release the package
