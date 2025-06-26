@@ -135,28 +135,29 @@ runs:
       id: custom-version-bump
       if: ${{ github.event_name == 'workflow_dispatch' && inputs.bump-command }}
       run: |
-        echo "Running the version bump command..."
-        # 1. Run your command and capture all its output
-        BUMP_OUTPUT=$(${{ inputs.bump-command }} ${{ inputs.semver }})
+        echo "Running the version bump command and capturing both stdout and stderr..."
+        # 1. Run your command. The '2>&1' redirects the error stream (2)
+        #    to the output stream (1), so we capture EVERYTHING.
+        BUMP_OUTPUT=$(${{ inputs.bump-command }} ${{ inputs.semver }} 2>&1)
+        EXIT_CODE=$? # Also capture the command's exit code
 
-        # 2. IMPORTANT: Print the full output for debugging purposes.
-        #    This will show us exactly what grep is trying to search.
-        echo "--- Full output from the bump command ---"
+        # 2. Print everything we captured for debugging.
+        echo "--- Full output (stdout + stderr) from the bump command ---"
         echo "$BUMP_OUTPUT"
         echo "--- End of full output ---"
+        echo "Command finished with exit code: $EXIT_CODE"
 
-        # 3. Try to extract the version. We add '|| true' to the grep command
-        #    so that if it finds nothing, it won't crash the whole script.
+        # 3. Try to extract the version from the combined output.
         VERSION=$(echo "$BUMP_OUTPUT" | grep -oP 'pyspark_common_utilities-\K[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
 
-        # 4. Manually check if the version was found. If not, exit with a clear error.
+        # 4. Manually check if the version was found.
         if [ -z "$VERSION" ]; then
           echo "::error::Could not extract version number from the command output."
-          echo "Please review the full output above to see why the pattern was not found."
+          echo "Please review the full output above."
           exit 1
         fi
 
-        # 5. If we get here, it means we were successful.
+        # 5. Success!
         echo "Successfully extracted version: $VERSION"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       shell: 'bash'
