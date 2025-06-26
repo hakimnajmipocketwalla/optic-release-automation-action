@@ -155,18 +155,13 @@ runs:
       with:
         github-token: ${{ inputs.github-token }}
         script: |
-          const inputs = JSON.parse(process.env.INPUTS_JSON);
           const { runAction } = require('${{ github.action_path }}/dist/index.js')
           await runAction({
             github,
             context,
-            inputs,
-            packageVersion: process.env.PACKAGE_VERSION
+            inputs: ${{ toJSON(inputs) }},
+            packageVersion: '${{ steps.set-final-version.outputs.version }}'
           })
-      env:
-        INPUTS_JSON: ${{ toJSON(inputs) }}
-        PACKAGE_VERSION: ${{ steps.set-final-version.outputs.version }}
-
 
     - name: Release the package
       uses: actions/github-script@v7
@@ -174,8 +169,5 @@ runs:
       with:
         github-token: ${{ inputs.github-token }}
         script: |
-          const inputs = JSON.parse(process.env.INPUTS_JSON);
           const { runAction } = require('${{ github.action_path }}/dist/index.js')
-          await runAction({ github, context, inputs })
-      env:
-        INPUTS_JSON: ${{ toJSON(inputs) }}
+          await runAction({ github, context, inputs: ${{ toJSON(inputs) }} })
